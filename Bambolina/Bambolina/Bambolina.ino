@@ -285,13 +285,13 @@ void loop()
       timeChange = millis();   // Record the current time
       for (int i = 0; i < 6; i++) {   // Move motors in sequence
         motorController.move(i, MIN_ABS_SPEED);
-        delay(60);
+        delay(30);
       }
       for (int y = 6; y <= 7; y++) {  // Move motors in sequence
         motorController.move(y, MIN_ABS_SPEED);
-        delay(40);
+        delay(15);
       }
-      while (millis() - timeChange < 150) {} // Wait for 150 ms
+      while (millis() - timeChange < 100) {} // Wait for 150 ms
       timeChange2 = millis();   // Update the time for the next change
       mpuInterrupt = false;     // Reset interrupt flag
       mpu.resetFIFO();          // Reset FIFO
