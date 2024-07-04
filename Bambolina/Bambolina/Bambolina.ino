@@ -14,7 +14,8 @@
   LOG_INPUT: A flag for logging input data (true/false).
   MIN_ABS_SPEED: Minimum speed for the motors.
 */
-
+#include <SPI.h>
+#include <MFRC522.h>
 #include "PID_v1.h"
 #include "LMotorController.h"
 #include "I2Cdev.h"
@@ -27,6 +28,16 @@
 #define LOG_INPUT true
 #define MIN_ABS_SPEED 20
 
+
+
+#define SS_PIN 10
+#define RST_PIN 9
+MFRC522 rfid(SS_PIN, RST_PIN);
+
+
+const double GradeAdjust = 4.33; // se va a destra bisogna diminuire il valore
+const double motorSpeedFactorLeft = 0.64;
+const double motorSpeedFactorRight = 0.74;
 
 /*
    MPU6050 Related Variables:
@@ -70,21 +81,19 @@ double movingAngleOffset = 0.1;
 int temp = 0;
 double input, output;
 int moveState = 0;
-double Kp = 160;
-double Kd = 12;
-double Ki = 100;
+double Kp = 180;   //  
+double Kd = 13; 
+double Ki = 105;
 PID pid(&input, &output, &setpoint, Kp, Ki, Kd, DIRECT);
 
-double motorSpeedFactorLeft = 0.68;
-double motorSpeedFactorRight = 0.73;
 
 // MOTOR CONTROLLER
-int ENA = 10;
+int ENA = 6;
 int IN1 = 8;
 int IN2 = 7;
-int IN3 = 6;
-int IN4 = 11;
-int ENB = 9;
+int IN3 = 3;
+int IN4 = 4 ;
+int ENB = 5;
 LMotorController motorController(ENA, IN1, IN2, ENB, IN3, IN4, motorSpeedFactorLeft, motorSpeedFactorRight);
 
 // timers
@@ -94,6 +103,7 @@ unsigned long timeStart = 0;
 unsigned long timeChange = 0;
 unsigned long timeChange2 = 0;
 unsigned long timeyhange = 0;
+unsigned long timeStep = 0;
 volatile bool mpuInterrupt = false;
 void dmpDataReady() {
   mpuInterrupt = true;
@@ -103,6 +113,9 @@ void dmpDataReady() {
 
 void setup()
 {
+
+  SPI.begin();
+  rfid.PCD_Init();
   /*
     I2C Setup:
 
@@ -128,6 +141,8 @@ void setup()
   Fastwire::setup(400, true);
 #endif
 
+
+
   // initialize serial communication
   // (115200 chosen because it is required for Teapot Demo output, but it's
   // really up to you depending on your project)
@@ -152,7 +167,8 @@ void setup()
   mpu.setZGyroOffset(-85);
   mpu.setZAccelOffset(1788); // 1688 factory default for my test chip
   timeyhange = millis();
-  while (millis() - timeyhange < 8000) {}
+ 
+ // while (millis() - timeyhange < 8000) {}
   // make sure it worked (returns 0 if so)
   if (devStatus == 0)
   {
@@ -174,7 +190,7 @@ void setup()
 
     //setup PID
     timeyhange = millis();
-    while (millis() - timeyhange < 8000) {}
+    while (millis() - timeyhange < 5000) {}
     pid.SetMode(AUTOMATIC);
     pid.SetSampleTime(10);
     pid.SetOutputLimits(-255, 255);
@@ -217,10 +233,11 @@ void loop()
   analogWrite(A1, 255);    // Set A1 to high (255) for the first phase
   analogWrite(A2, 0);      // Set A2 to low (0) for the first phase
   analogWrite(A3, 0);      // Set A3 to low (0) for the first phase
-  timeStart = millis();    // Record the start time for phase 1
-
+  timeStart = millis();  // Record the start time for phase 1
+  timeChange = millis();
+  bool flag = true;
   // Loop for 15 seconds
-  while (millis() - timeStart < 15000) {
+  while (flag) {
     if (!dmpReady) return; // If DMP is not ready, exit the loop
 
     // PID computation and motor control until an interrupt is detected
@@ -242,7 +259,21 @@ void loop()
       mpu.dmpGetQuaternion(&q, fifoBuffer);  // Get quaternion data
       mpu.dmpGetGravity(&gravity, &q);       // Get gravity vector
       mpu.dmpGetYawPitchRoll(ypr, &q, &gravity); // Get yaw, pitch, roll
-      input = ypr[1] * 180 / M_PI - 4;       // Convert pitch to degrees and adjust
+      input = ypr[1] * 180 / M_PI - GradeAdjust;       // Convert pitch to degrees and adjust
+    }
+
+    //delay(2);  // Small delay to allow the system to update
+    //Serial.println("prima");
+    
+    if (millis() - timeChange > 2000) {
+      timeChange = millis();
+      Serial.println("aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa");
+      if (rfid.PICC_IsNewCardPresent()) {
+         Serial.println("dopo");
+         flag = false;
+      }
+      mpuInterrupt = false;     // Reset interrupt flag
+      mpu.resetFIFO();          // Reset FIFO     
     }
   }
 
@@ -252,6 +283,8 @@ void loop()
   analogWrite(A3, 0);    // Set A3 to low (0) for the second phase
   timeStart = millis();  // Record the start time for phase 2
   timeChange = millis(); // Record the time for phase change
+  timeChange2 = millis(); // Record the time for phase change
+  timeStep = 1000;
   mpu.resetFIFO();       // Reset FIFO
 
   // Loop for 30 seconds
@@ -277,8 +310,30 @@ void loop()
       mpu.dmpGetQuaternion(&q, fifoBuffer);  // Get quaternion data
       mpu.dmpGetGravity(&gravity, &q);       // Get gravity vector
       mpu.dmpGetYawPitchRoll(ypr, &q, &gravity); // Get yaw, pitch, roll
-      input = ypr[1] * 180 / M_PI - 4;       // Convert pitch to degrees and adjust
+      input = ypr[1] * 180 / M_PI - GradeAdjust;       // Convert pitch to degrees and adjust
     }
+
+    // Move motors in a specific pattern every 9 seconds
+    
+    if (millis() - timeChange2 > timeStep) {
+      
+      int j = 0;
+      for (int i = 1; i <= 20; i++) {   // Move motors in sequence
+        motorController.move(j, MIN_ABS_SPEED);
+        delay(2);
+        j+=1;
+      }
+      delay(100);
+      
+      timeChange2 = millis();// Update the time for the next change
+      timeStep = 8000;
+ 
+      mpuInterrupt = false;     // Reset interrupt flag
+      mpu.resetFIFO();          // Reset FIFO
+      
+    }
+    
+/*
 
     // Move motors in a specific pattern every 9 seconds
     if (millis() - timeChange2 > 9000) {
@@ -296,6 +351,7 @@ void loop()
       mpuInterrupt = false;     // Reset interrupt flag
       mpu.resetFIFO();          // Reset FIFO
     }
+   */ 
   }
 
   Serial.println("fase3");  // Print "fase3" to indicate the beginning of the third phase
@@ -328,7 +384,7 @@ void loop()
       mpu.dmpGetQuaternion(&q, fifoBuffer);  // Get quaternion data
       mpu.dmpGetGravity(&gravity, &q);       // Get gravity vector
       mpu.dmpGetYawPitchRoll(ypr, &q, &gravity); // Get yaw, pitch, roll
-      input = ypr[1] * 180 / M_PI - 4;       // Convert pitch to degrees and adjust
+      input = ypr[1] * 180 / M_PI - GradeAdjust;       // Convert pitch to degrees and adjust
     }
 
     delay(2);  // Small delay to allow the system to update

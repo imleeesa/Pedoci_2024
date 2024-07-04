@@ -110,8 +110,8 @@ void LMotorController::move(int speed, int minAbsSpeed)
 
   // Ensure the real speed is at least minAbsSpeed
   int realSpeed = max(minAbsSpeed, abs(speed));
-  Serial.print("vel="); // Print the speed for debugging
-  Serial.println(realSpeed);
+  // Serial.print("vel="); // Print the speed for debugging
+  //Serial.println(realSpeed);
 
   // Set the direction for both motors
   digitalWrite(_in1, speed > 0 ? HIGH : LOW);
