@@ -34,10 +34,11 @@
 #define RST_PIN 9
 MFRC522 rfid(SS_PIN, RST_PIN);
 
+double inputSav;
 
-const double GradeAdjust = 4.33; // se va a destra bisogna diminuire il valore
-const double motorSpeedFactorLeft = 0.64;
-const double motorSpeedFactorRight = 0.74;
+const double GradeAdjust = 4.15; // se va a destra bisogna diminuire il valore
+const double motorSpeedFactorLeft = 0.65;
+const double motorSpeedFactorRight = 0.75;
 
 /*
    MPU6050 Related Variables:
@@ -81,9 +82,9 @@ double movingAngleOffset = 0.1;
 int temp = 0;
 double input, output;
 int moveState = 0;
-double Kp = 180;   //  
-double Kd = 13; 
-double Ki = 105;
+double Kp = 180;   //
+double Kd = 13;
+double Ki = 15;
 PID pid(&input, &output, &setpoint, Kp, Ki, Kd, DIRECT);
 
 
@@ -104,6 +105,7 @@ unsigned long timeChange = 0;
 unsigned long timeChange2 = 0;
 unsigned long timeyhange = 0;
 unsigned long timeStep = 0;
+unsigned long timeInterval = 0;
 volatile bool mpuInterrupt = false;
 void dmpDataReady() {
   mpuInterrupt = true;
@@ -167,8 +169,8 @@ void setup()
   mpu.setZGyroOffset(-85);
   mpu.setZAccelOffset(1788); // 1688 factory default for my test chip
   timeyhange = millis();
- 
- // while (millis() - timeyhange < 8000) {}
+
+  // while (millis() - timeyhange < 8000) {}
   // make sure it worked (returns 0 if so)
   if (devStatus == 0)
   {
@@ -205,10 +207,10 @@ void setup()
     //Serial.print(devStatus);
     //Serial.println(F(")"));
   }
-  pinMode(A1, OUTPUT);
-  pinMode(A2, OUTPUT);
-  pinMode(A3, OUTPUT);
-}
+  pinMode(A1, OUTPUT); // rosso
+  pinMode(A2, OUTPUT); // blu
+  pinMode(A0, OUTPUT); // verde
+ }
 
 
 void loop()
@@ -232,7 +234,7 @@ void loop()
   Serial.println("fase1");  // Print "fase1" to indicate the beginning of the first phase
   analogWrite(A1, 255);    // Set A1 to high (255) for the first phase
   analogWrite(A2, 0);      // Set A2 to low (0) for the first phase
-  analogWrite(A3, 0);      // Set A3 to low (0) for the first phase
+  analogWrite(A0, 0);      // Set A3 to low (0) for the first phase
   timeStart = millis();  // Record the start time for phase 1
   timeChange = millis();
   bool flag = true;
@@ -264,37 +266,40 @@ void loop()
 
     //delay(2);  // Small delay to allow the system to update
     //Serial.println("prima");
-    
+
     if (millis() - timeChange > 2000) {
       timeChange = millis();
       Serial.println("aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa");
       if (rfid.PICC_IsNewCardPresent()) {
-         Serial.println("dopo");
-         flag = false;
+        Serial.println("dopo");
+        flag = false;
       }
       mpuInterrupt = false;     // Reset interrupt flag
-      mpu.resetFIFO();          // Reset FIFO     
+      mpu.resetFIFO();          // Reset FIFO
     }
   }
 
   Serial.println("fase2");  // Print "fase2" to indicate the beginning of the second phase
   analogWrite(A1, 0);    // Set A1 to low (0) for the second phase
   analogWrite(A2, 255);  // Set A2 to high (255) for the second phase
-  analogWrite(A3, 0);    // Set A3 to low (0) for the second phase
+  analogWrite(A0, 0);    // Set A3 to low (0) for the second phase
   timeStart = millis();  // Record the start time for phase 2
   timeChange = millis(); // Record the time for phase change
-  timeChange2 = millis(); // Record the time for phase change
-  timeStep = 1000;
+  timeStep = 5000;
+  timeInterval = 1000;
   mpu.resetFIFO();       // Reset FIFO
 
   // Loop for 30 seconds
-  while (millis() - timeStart < 30000) {
+  bool balanced = true;
+  while (millis() - timeStart < 25000) {
     if (!dmpReady) return; // If DMP is not ready, exit the loop
 
     // PID computation and motor control until an interrupt is detected
     while (!mpuInterrupt && fifoCount < packetSize) {
       pid.Compute();    // Compute the PID output
       motorController.move(output, MIN_ABS_SPEED); // Move the motors based on PID output
+      Serial.print("Qui = ");
+      Serial.println(input);
     }
 
     mpuInterrupt = false;   // Reset the interrupt flag
@@ -310,54 +315,50 @@ void loop()
       mpu.dmpGetQuaternion(&q, fifoBuffer);  // Get quaternion data
       mpu.dmpGetGravity(&gravity, &q);       // Get gravity vector
       mpu.dmpGetYawPitchRoll(ypr, &q, &gravity); // Get yaw, pitch, roll
-      input = ypr[1] * 180 / M_PI - GradeAdjust;       // Convert pitch to degrees and adjust
+      input = ypr[1] * 180 / M_PI - GradeAdjust - 0.8;       // Convert pitch to degrees and adjust
+      if (!balanced) {
+        input = input + 0.7;
+        Serial.print("nuovo = ");
+        Serial.println(input);
+      }
     }
 
     // Move motors in a specific pattern every 9 seconds
-    
-    if (millis() - timeChange2 > timeStep) {
-      
-      int j = 0;
-      for (int i = 1; i <= 20; i++) {   // Move motors in sequence
-        motorController.move(j, MIN_ABS_SPEED);
-        delay(2);
-        j+=1;
-      }
-      delay(100);
-      
-      timeChange2 = millis();// Update the time for the next change
-      timeStep = 8000;
- 
-      mpuInterrupt = false;     // Reset interrupt flag
-      mpu.resetFIFO();          // Reset FIFO
-      
+    if (millis() - timeChange < timeInterval) {
+      balanced = false;
+      Serial.println("VERDEEEEEEEEEEEEEEEEEEE");
+      analogWrite(A1, 0);    // Set A1 to low (0) for the second phase
+      analogWrite(A2, 0);  // Set A2 to high (255) for the second phase
+      analogWrite(A0, 255);    // Set A3 to low (0) for the second phase
     }
-    
-/*
+    else {
+      balanced = true;
+      if (millis() - timeChange > timeStep) {
+        Serial.println("Rossoooooooooooooooooo");
+        timeChange = millis();
+        analogWrite(A1, 255);    // Set A1 to low (0) for the second phase
+        analogWrite(A2, 0);  // Set A2 to high (255) for the second phase
+        analogWrite(A0, 0);    // Set A3 to low (0) for the second phase
+      }
+    }
+    /*
+      int j = 50;
+      for (int i = 1; i <= 40; i++) {   // Move motors in sequence
+      motorController.move(j, j);
+      delay(20);
+      motorController.move(j, j);
+      delay(20);
+      }
 
-    // Move motors in a specific pattern every 9 seconds
-    if (millis() - timeChange2 > 9000) {
-      timeChange = millis();   // Record the current time
-      for (int i = 0; i < 6; i++) {   // Move motors in sequence
-        motorController.move(i, MIN_ABS_SPEED);
-        delay(30);
-      }
-      for (int y = 6; y <= 7; y++) {  // Move motors in sequence
-        motorController.move(y, MIN_ABS_SPEED);
-        delay(15);
-      }
-      while (millis() - timeChange < 100) {} // Wait for 150 ms
-      timeChange2 = millis();   // Update the time for the next change
-      mpuInterrupt = false;     // Reset interrupt flag
-      mpu.resetFIFO();          // Reset FIFO
-    }
-   */ 
+      //delay(1000);
+    */
+
   }
 
   Serial.println("fase3");  // Print "fase3" to indicate the beginning of the third phase
   analogWrite(A1, 0);    // Set A1 to low (0) for the third phase
   analogWrite(A2, 0);    // Set A2 to low (0) for the third phase
-  analogWrite(A3, 255);  // Set A3 to high (255) for the third phase
+  analogWrite(A0, 255);  // Set A3 to high (255) for the third phase
   mpu.resetFIFO();       // Reset FIFO
   timeStart = millis();  // Record the start time for phase 3
 
