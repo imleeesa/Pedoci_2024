@@ -317,7 +317,7 @@ void loop()
       mpu.dmpGetYawPitchRoll(ypr, &q, &gravity); // Get yaw, pitch, roll
       input = ypr[1] * 180 / M_PI - GradeAdjust - 0.8;       // Convert pitch to degrees and adjust
       if (!balanced) {
-        input = input + 0.7;
+        input = input + 0.5;
         Serial.print("nuovo = ");
         Serial.println(input);
       }
