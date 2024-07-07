@@ -1,10 +1,13 @@
 #include <SoftwareSerial.h> // Include the SoftwareSerial library for serial communication
 #include <Wire.h> // Include the Wire library for I2C communication
 #include <VL53L0X.h> // Include the library for the VL53L0X sensor
+#include <Servo.h>
 
 VL53L0X sensor; // Create an instance of the VL53L0X sensor
 VL53L0X sensorFront; // Create an instance of the VL53L0X sensor for the front
 VL53L0X sensorBack; // Create an instance of the VL53L0X sensor for the back
+
+Servo anchorServo; // Servo for drop the Anchor
 
 float cmFront = 0.00; // Variable to store the front distance in cm
 float cmFront2 = 0.00; // Variable to store the second front distance in cm
@@ -76,6 +79,10 @@ void setup() {
   pinMode(redOut, OUTPUT); // Set RGB LED pins as outputs
   pinMode(greenOut, OUTPUT);
   pinMode(blueOut, OUTPUT);
+
+  // Servo settings
+  anchorServo.attach(10); // Attach the servo to the specified pin
+  anchorServo.write(0); // Move the servo to the 90 degree position (adjust as needed)
   
   Wire.begin(); // Start the I2C communication
 
@@ -133,9 +140,16 @@ void loop() {
   
   // Turn off LED
   setColor(0, 0, 0);
-  
+
+  setColor(0, 0, 255);
+
   // Check and send distance
   checkDistance();
+
+  setColor(0, 255, 0);
+
+  //Drop the Anchor of the Mascareta
+  dropAnchor();
   
   // Stop motors
   stop();
@@ -348,4 +362,8 @@ void sender(String mess) {
   }
   
   Serial.println(msgOut); // Print the sent message
+}
+
+void dropAnchor() { // Function to lower the anchor using a servo motor
+  anchorServo.write(0); // Move the servo to the 90 degree position (adjust as needed)
 }
