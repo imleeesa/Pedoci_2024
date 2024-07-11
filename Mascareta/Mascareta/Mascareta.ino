@@ -13,6 +13,11 @@ float cmFront = 0.00; // Variable to store the front distance in cm
 float cmFront2 = 0.00; // Variable to store the second front distance in cm
 float cmBack = 0.00; // Variable to store the back distance in cm
 
+//Servo 
+const int servoPin = A2;
+const int minPulseWidth = 1000;  // 1 ms per 0 gradi
+const int maxPulseWidth = 2000;  // 2 ms per 360 gradi
+
 unsigned long remataTime = 0; // Variable to store the time of the paddle stroke
 unsigned long startTime = 0; // Variable to store the start time
 bool frontSensorTriggered = false; // Flag to check if the front sensor was triggered
@@ -33,27 +38,27 @@ String msgOut2; // Response message
 char a[100]; // Buffer for serial transmission
 
 // Define the pins used for the motors
-int ENA = 5;
-int IN1 = 7;
+int ENA = 10;
+int IN1 = 12;
 int IN2 = 8;
-int ENB = 6;
-int IN3 = 10;
-int IN4 = 9;
+int ENB = 9;
+int IN3 = 7;
+int IN4 = 4;
 
 // Define the pins used for the Led
-int redOut = A3;
-int greenOut = A2;
-int blueOut = A0;
+const int redPin = 6;
+const int greenPin = 5;
+const int bluePin = 11;
 
 // Define the pins XSHUT for the sensors
-const int XSHUT1 = A1; // Pin XSHUT for the front sensor
-const int XSHUT2 = A2; // Pin XSHUT for the second front sensor
-const int XSHUT3 = A0; // Pin XSHUT for the back sensor
+const int XSHUT1 = A1; // Pin XSHUT per il sensore frontale
+const int XSHUT2 = A0; // Pin XSHUT per il sensore posteriore
+const int XSHUT3 = A3; // Pin XSHUT per il nuovo sensore non utilizzato
 
-void setColor(int red, int green, int blue) { // Function to set the color of an RGB LED
-  analogWrite(redOut, red);
-  analogWrite(greenOut, green);
-  analogWrite(blueOut, blue);
+void setColor(int red, int green, int blue) {
+  digitalWrite(redPin, red);
+  digitalWrite(greenPin, green);
+  digitalWrite(bluePin, blue);
 }
 
 void setup() {
@@ -61,28 +66,27 @@ void setup() {
   BTSerial.begin(38400); // Start Bluetooth serial communication at 38400 baud
   Serial.begin(38400); // Start serial communication at 38400 baud
   Serial.println("Mascareta begin"); // Print a start message
-  
-  // Set motor pins as outputs
+
+  pinMode(servoPin, OUTPUT);
+
   pinMode(ENA, OUTPUT);
   pinMode(ENB, OUTPUT);
   pinMode(IN1, OUTPUT);
   pinMode(IN2, OUTPUT);
   pinMode(IN3, OUTPUT);
   pinMode(IN4, OUTPUT);
-  
-  // Turn off motors - Initial State
+
+  // Spegne i motori - Initial State
   digitalWrite(IN1, LOW);
   digitalWrite(IN2, LOW);
   digitalWrite(IN3, LOW);
   digitalWrite(IN4, LOW);
 
-  pinMode(redOut, OUTPUT); // Set RGB LED pins as outputs
-  pinMode(greenOut, OUTPUT);
-  pinMode(blueOut, OUTPUT);
+  pinMode(redPin, OUTPUT); // Set RGB LED pins as outputs
+  pinMode(greenPin, OUTPUT);
+  pinMode(bluePin, OUTPUT);
 
   // Servo settings
-  anchorServo.attach(10); // Attach the servo to the specified pin
-  anchorServo.write(0); // Move the servo to the 90 degree position (adjust as needed)
   
   Wire.begin(); // Start the I2C communication
 
@@ -96,7 +100,9 @@ void setup() {
   digitalWrite(XSHUT3, LOW);
   delay(10);
 
-  pinMode(XSHUT1, INPUT);
+  setColor(0, 255, 255);
+
+  pinMode(XSHUT3, INPUT);
   delay(10);
   sensor.setTimeout(500); // Set timeout for the sensor
   if (!sensor.init()) { // Initialize the sensor
@@ -105,7 +111,7 @@ void setup() {
   }
   sensor.setAddress(0x30); // Set I2C address for the sensor
 
-  pinMode(XSHUT2, INPUT);
+  pinMode(XSHUT1, INPUT);
   delay(10);
   sensorFront.setTimeout(500); // Set timeout for the front sensor
   if (!sensorFront.init()) { // Initialize the front sensor
@@ -114,7 +120,7 @@ void setup() {
   }
   sensorFront.setAddress(0x31); // Set I2C address for the front sensor
 
-  pinMode(XSHUT3, INPUT);
+  pinMode(XSHUT2, INPUT);
   delay(10);
   sensorBack.setTimeout(500); // Set timeout for the back sensor
   if (!sensorBack.init()) { // Initialize the back sensor
@@ -132,44 +138,43 @@ void setup() {
 }
 
 void loop() {
-  // Set LED color to red
-  setColor(255, 0, 0);
+  anchorInitial();
+  delay(2000);
   
-  // Wait for the command to start
+ 
+  setColor(255, 0, 255);
+
   receiver("C");
   
   // Turn off LED
-  setColor(0, 0, 0);
+  setColor(255, 255, 255);
 
-  setColor(0, 0, 255);
+  setColor(255, 0, 0);
 
   // Check and send distance
   checkDistance();
 
-  setColor(0, 255, 0);
-
-  //Drop the Anchor of the Mascareta
-  dropAnchor();
+  setColor(255, 255, 0);
   
   // Stop motors
   stop();
   
   // Turn off LED
-  setColor(0, 0, 0);
+  setColor(255, 255, 0);
   
   // Wait for 2 seconds
   delay(2000);
-  
+
+  anchorInitial();
+
   // Turn right for 200ms
-  aDestra(200);
+  aSinistra(1200);
   
   // Wait for 600ms
-  delay(600);
+  delay(1000);
   
   // Start moving forward
-  directionControl(3000);
-  
-  // Infinite loop
+  rowed(8000);
   while (true);
 }
 
@@ -178,7 +183,8 @@ void checkDistance() {
   unsigned long startTime = millis(); // Record the start time
   int distance = 10000; // Initialize distance with a high value
   
-  while ((distance / 10 >= 150) && (millis() - startTime < 3500)) {
+  while ((distance / 10 >= 50) && (millis() - startTime < 6000)) {
+    Serial.println("Sono dentro");
     // Check if distance is above threshold and within time limit
     distance = sensor.readRangeContinuousMillimeters(); // Read distance from front sensor
     
@@ -226,6 +232,7 @@ void checkDistance() {
     BTSerial.print("!"); // Send delimiter
     setColor(255, 0, 0); // Set color to red
   }
+  anchorDrop();
 }
 
 void receiver(String mess) {
@@ -286,47 +293,49 @@ void stop() {
 }
 
 void directionControl(int time) {
-  // Function to control motor direction for a specified time
-  // Set maximum power to motors
-  analogWrite(ENA, 75); // Right motor power
-  analogWrite(ENB, 75); // Left motor power
+  // Imposta la potenza massima dei motori
+  analogWrite(ENA, 125); // destra da davanti
+  analogWrite(ENB, 120);
 
-  // Drive motors A and B forward
+  // Aziona i motori A e B in avanti
   digitalWrite(IN1, HIGH);
   digitalWrite(IN2, LOW);
   digitalWrite(IN3, LOW);
   digitalWrite(IN4, HIGH);
-  
-  delay(time); // Wait for the specified time
-  
-  // Stop motors
+
+  // Aspetta per il tempo specificato
+  delay(time);
+
+  // Ferma i motori
   analogWrite(ENA, 0);
   analogWrite(ENB, 0);
 }
 
+
 void aSinistra(int time) {
   // Function to turn left for a specified time
   // Set power to motor A
-  analogWrite(ENA, 100); // Right motor power
+  analogWrite(ENA, 50); // Right motor power
+  analogWrite(ENB, 125); // Left motor power
 
-  // Drive motors to turn left
+  // Drive motors A and B forward
   digitalWrite(IN1, LOW);
   digitalWrite(IN2, HIGH);
   digitalWrite(IN3, LOW);
   digitalWrite(IN4, HIGH);
-  
+
   delay(time); // Wait for the specified time
-  
+
   // Stop motors
-  analogWrite(ENA, 0);
+  analogWrite(ENA, 0); 
   analogWrite(ENB, 0);
 }
 
 void aDestra(int time) {
   // Function to turn right for a specified time
   // Set maximum power to motors
-  analogWrite(ENA, 125); // Right motor power
-  analogWrite(ENB, 20); // Left motor power
+  digitalWrite(ENA, 20); // Right motor power
+  digitalWrite(ENB, 0); // Left motor power
 
   // Drive motors A and B forward
   digitalWrite(IN1, HIGH);
@@ -337,8 +346,8 @@ void aDestra(int time) {
   delay(time); // Wait for the specified time
 
   // Stop motors
-  analogWrite(ENA, 0); 
-  analogWrite(ENB, 0);
+  digitalWrite(ENA, 0); 
+  digitalWrite(ENB, 0);
 }
 
 void sender(String mess) {
@@ -364,6 +373,72 @@ void sender(String mess) {
   Serial.println(msgOut); // Print the sent message
 }
 
-void dropAnchor() { // Function to lower the anchor using a servo motor
-  anchorServo.write(0); // Move the servo to the 90 degree position (adjust as needed)
+void rowed(int time){
+   // Function to check distance and react accordingly
+  unsigned long remataTempo = millis(); // Record the start time
+  int distance = 10000; // Initialize distance with a high value
+  
+  while (millis() - remataTempo < time) {
+    cmFront = sensorFront.readRangeContinuousMillimeters() / 10.0; // Read front distance in cm
+
+    // Check if the paddle passes in front of the front sensor
+    if (cmFront < 50 && !frontSensorTriggered) {
+      cmFront2 = sensorFront.readRangeContinuousMillimeters() / 10.0; // Read second front distance in cm
+      delay(200);
+      frontSensorTriggered = true; // Set the flag to true
+      remataTime = millis(); // Record the time of the paddle stroke
+    }
+
+    // Read the back sensor
+    cmBack = sensorBack.readRangeContinuousMillimeters() / 10.0; // Read back distance in cm
+
+    // Check if the paddle passes in front of the back sensor within 1 second
+    if (frontSensorTriggered) {
+      if (cmBack < 50 && (millis() - remataTime <= 1000)) {
+        Serial.println("Corro"); // Print a message indicating movement
+        directionControl(1000); // Move forward for 1 second
+        frontSensorTriggered = false; // Reset the flag
+      } else if (millis() - startTime > 1000) {
+        frontSensorTriggered = false; // Reset the flag after 1 second
+      }
+    }
+
+    // Print current readings for debugging
+    Serial.print("Anteriore: ");
+    Serial.print(cmFront);
+    Serial.println(" cm");
+
+    Serial.print("Posteriore: ");
+    Serial.print(cmBack);
+    Serial.println(" cm");
+
+    delay(100);
+    setColor(255, 0, 0); // Set color to red
+  }
+
 }
+
+void writeServo(int pin, int pulseWidth) {
+  digitalWrite(pin, HIGH);
+  delayMicroseconds(pulseWidth);
+  digitalWrite(pin, LOW);
+  delayMicroseconds(20000 - pulseWidth);
+}
+
+
+void anchorInitial(){
+    for (int angle = 0; angle <= 360; angle += 5) { // Incremento di 5 gradi
+    int pulseWidth = map(angle, 0, 360, minPulseWidth, maxPulseWidth);
+    writeServo(servoPin, pulseWidth);
+    delay(10);  
+    }
+}
+
+void anchorDrop(){
+   for (int angle = 360; angle >= 0; angle -= 5) { // Decremento di 5 gradi
+    int pulseWidth = map(angle, 0, 360, minPulseWidth, maxPulseWidth);
+    writeServo(servoPin, pulseWidth);
+    delay(10);  // Ritardo ridotto per aumento velocità
+  }
+}
+
