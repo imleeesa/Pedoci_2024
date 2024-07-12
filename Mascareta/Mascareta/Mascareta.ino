@@ -138,6 +138,7 @@ void setup() {
 }
 
 void loop() {
+  //directionControl(10000);
   anchorInitial();
   delay(2000);
   

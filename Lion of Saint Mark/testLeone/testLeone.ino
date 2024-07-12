@@ -3,58 +3,53 @@
 #include "DFRobotDFPlayerMini.h"
 #include "paj7620.h"
 
-// Predefined messages
 /*
-  1 - Always be careful.
-  2 - Go slow
-  3 - Hello, I am the Lion of Venice
-  4 - Oissa
-  5 - Hey, stop if it's my turn
-  6 - Watch out for the boat
-  7 - Long
-  8 - I am driving the gondola
-  9 - Piazza San Marco
+  1: Here we are in Saint Mark 7000
+  2: Right now I'm steering a gondola 4000
+  3: LONGO 2000
+  4: WATCH OUT 2000
+  5: AO STOP 4000
+  6: OISSA 2 seconds
+  7: Good Morning everyone 12 seconds
+  8: Be careful
 */
 
-// Define constants for gesture recognition timing
-#define GES_REACTION_TIME 500
-#define GES_ENTRY_TIME 800
-#define GES_QUIT_TIME 1000
+#define GES_REACTION_TIME    500       // You can adjust the reaction time according to the actual circumstance.
+#define GES_ENTRY_TIME      800       // When you want to recognize the Forward/Backward gestures, your gestures' reaction time must be less than GES_ENTRY_TIME (0.8s). 
+#define GES_QUIT_TIME     1000
 
 // Define global variables
-int distance2;  // Distance calculated by the ultrasonic sensor
+int distance2;  // Distance measured by the ultrasonic sensor
 unsigned long tempo;  // Time variable
 long distance = 150;  // Maximum reading distance of the ultrasonic sensor
 const int ritardo = 200;  // Delay time between commands
-String msgIn;  // Message received from the HC05
-String msgOut;  // Message to be sent to the HC05
+String msgIn;  // Message received from HC05
+String msgOut;  // Message to send to HC05
 String msgOut2;  // Response message
 char a[100];  // Buffer for serial transmission
 
-// Initialize software serial on pins 52 (RX) and 50 (TX)
-SoftwareSerial mySoftwareSerial(52, 50);
+SoftwareSerial mySoftwareSerial(52, 50); // RX, TX
 
-DFRobotDFPlayerMini myDFPlayer;  // Initialize DFPlayer Mini object
+DFRobotDFPlayerMini myDFPlayer;
 
-void printDetail(uint8_t type, int value);  // Function prototype
+void printDetail(uint8_t type, int value);
 
-// Motor control pins
-int ENA = 8;
-int IN1 = 9;
-int IN2 = 10;
-int ENB = 5;
-int IN3 = 6;
-int IN4 = 7;
-int ENC = 2;
-int IN5 = 4;
-int IN6 = 3;
+int ENA = 4;
+int IN1 = 2;
+int IN2 = 3;
+int ENB = 7;
+int IN3 = 5;
+int IN4 = 6;
+int ENC = 10;
+int IN5 = 8;
+int IN6 = 9;
 
-// RGB LED output pins
-int redOut = A2;
-int greenOut = A1;
-int blueOut = A0;
+const int redOut = A1;
+const int greenOut = A2;
+const int blueOut = A0;
 
-// Function to set the color of the RGB LED
+boolean canI = false;
+
 void setColor(int red, int green, int blue) {
   analogWrite(redOut, red);
   analogWrite(greenOut, green);
@@ -62,7 +57,7 @@ void setColor(int red, int green, int blue) {
 }
 
 void setup() {
-  // Initialize serial communication
+  // put your setup code here, to run once:
   Serial1.begin(38400);
   Serial2.begin(38400);
   mySoftwareSerial.begin(9600);
@@ -70,7 +65,6 @@ void setup() {
 
   Serial.print("Leone begin");
 
-  // Set motor control pins as outputs
   pinMode(ENA, OUTPUT);
   pinMode(ENB, OUTPUT);
   pinMode(ENC, OUTPUT);
@@ -81,7 +75,7 @@ void setup() {
   pinMode(IN5, OUTPUT);
   pinMode(IN6, OUTPUT);
   
-  // Turn off motors initially
+  // Turn off motors - Initial State
   digitalWrite(IN1, LOW);
   digitalWrite(IN2, LOW);
   digitalWrite(IN3, LOW);
@@ -89,7 +83,6 @@ void setup() {
   digitalWrite(IN5, LOW);
   digitalWrite(IN6, LOW);
 
-  // Set RGB LED pins as outputs
   pinMode(redOut, OUTPUT);
   pinMode(greenOut, OUTPUT);
   pinMode(blueOut, OUTPUT);
@@ -98,8 +91,7 @@ void setup() {
   Serial.println(F("DFRobot DFPlayer Mini Demo"));
   Serial.println(F("Initializing DFPlayer... (May take 3~5 seconds)"));
 
-  // Initialize DFPlayer
-  if (!myDFPlayer.begin(mySoftwareSerial)) {
+  if (!myDFPlayer.begin(mySoftwareSerial)) { // Use softwareSerial to communicate with the MP3 module.
     Serial.println(F("Unable to begin:"));
     Serial.println(F("1. Please recheck the connection!"));
     Serial.println(F("2. Please insert the SD card!"));
@@ -108,54 +100,64 @@ void setup() {
   Serial.println(F("DFPlayer Mini online."));
 
   uint8_t error = 0;
+
   Serial.println("\nPAJ7620U2 TEST DEMO: Recognize 9 gestures.");
 
-  // Initialize PAJ7620 gesture sensor
-  error = paj7620Init();
+  error = paj7620Init();      // initialize Paj7620 registers
+
   if (error) {
-    Serial.print("INIT ERROR,CODE:");
+    Serial.print("INIT ERROR, CODE:");
     Serial.println(error);
-    setColor(255, 0, 0);
+    setColor(0, 255, 255);
     while (true);
   } else {
     Serial.println("INIT OK");
   }
   Serial.println("Please input your gestures:\n");
-  setColor(255, 0, 0);
+  setColor(0, 255, 255);
   delay(1000);
-  setColor(0, 0, 0);
+  setColor(255, 255, 255);
   myDFPlayer.volume(30);
 }
 
 void loop() {
-  // Main loop
+  // directionControl(10000);
   delay(2000);
   handleGesture();
   delay(1000);
-  myDFPlayer.play(3);  // Play message 3
-  delay(11000);
-  myDFPlayer.play(1);  // Play message 1
-  delay(2000);
-  myDFPlayer.play(6);  // Play message 6
-  delay(1000);
+  myDFPlayer.play(7);
+  delay(12000);
+  myDFPlayer.play(3);
+  delay(3000);
+  myDFPlayer.play(2);
+  delay(3000);
+  myDFPlayer.play(4);
+  delay(3000);
   Serial2.write("$C#");
   Serial.print("sended");
   receiveDistance();
+  // myDFPlayer.play(1);
+  // delay(2000);
   Serial.println("cadsj");
+  myDFPlayer.play(8);
+  delay(3000);
   receiver("U");
   turnAround2(500);
   delay(1000);
-  directionControl(4000);
-  myDFPlayer.play(9);  // Play message 9
+  directionControl(2000);
+  delay(1000);
+  turnAround(500);
+  myDFPlayer.play(1);
   while (true);
 }
 
-// Function to turn around for a specified time
 void turnAround(int time) {
+  // Set the motors to maximum power
   analogWrite(ENA, 100);
   analogWrite(ENB, 100);
   analogWrite(ENC, 100);
 
+  // Move motors A, B, and C forward
   digitalWrite(IN1, LOW);
   digitalWrite(IN2, HIGH);
   digitalWrite(IN3, LOW);
@@ -163,17 +165,22 @@ void turnAround(int time) {
   digitalWrite(IN5, LOW);
   digitalWrite(IN6, HIGH);
 
+  // Wait for the specified time
   delay(time);
 
+  // Stop the motors
   analogWrite(ENA, 0);
   analogWrite(ENB, 0);
   analogWrite(ENC, 0);
 }
 
-// Function to receive and acknowledge a message
 void receiver(String mess) {
+  // Loop until the confirmation message "$ACK#" is received
   while (msgOut != "$ACK#") {
+    // Wait until data is available on the Bluetooth serial
     while (!Serial1.available()) {}
+
+    // Read incoming data and store it in msgIn
     msgIn = "";
     while (Serial1.available()) {
       delay(200);
@@ -183,6 +190,8 @@ void receiver(String mess) {
     }
     Serial.println(msgIn);
     String m = String(msgIn);
+    
+    // Send an ACK signal to Pinocchio
     if (m == mess) {
       Serial.print("INN");
       msgOut = "ACK";
@@ -199,23 +208,26 @@ void receiver(String mess) {
         Serial1.println(a[i]);
         delay(200);
       }
+
       Serial.println(msgOut);
     }
   }
 }
 
-// Function to receive and acknowledge a message on Serial2
 void receiver0(String mess) {
   String message = "";
   while (message != mess) {
     if (Serial2.available()) {
       delay(200);
-      char receivedChar = Serial2.read();
+      char receivedChar = Serial2.read(); // Read the received character
+      
+      // If the received character is '$', start storing the message
       if (receivedChar == '$') {
         message = "";
         while (Serial2.available()) {
           char nextChar = Serial2.read();
           if (nextChar == '#') {
+            // End of message, print the received message
             Serial.println("Message received: " + message);
             break;
           }
@@ -226,18 +238,17 @@ void receiver0(String mess) {
   }
 }
 
-// Function to receive distance data
 void receiveDistance() {
   String receivedData = "";
   unsigned long startTime = millis();
   int distance = 10000;
-  while (distance > 120 && millis() - startTime < 5000) {
+  while (distance > 50 && millis() - startTime < 5000) {
     if (Serial2.available()) {
       char c = Serial2.read();
       Serial.println(c);
       if (c == '!') {
         distance = receivedData.toInt();
-        if (distance != 0) {
+        if (distance != 0) { // Ignore messages with zero distance
           Serial.print("Distance received: ");
           Serial.println(distance);
         } else {
@@ -253,12 +264,13 @@ void receiveDistance() {
   Serial1.print("$S#");
 }
 
-// Function to turn around for a specified time with different motor direction
 void turnAround2(int time) {
+  // Set the motors to maximum power
   analogWrite(ENA, 100);
   analogWrite(ENB, 100);
   analogWrite(ENC, 100);
 
+  // Move motors A, B, and C backward
   digitalWrite(IN1, HIGH);
   digitalWrite(IN2, LOW);
   digitalWrite(IN3, HIGH);
@@ -266,19 +278,24 @@ void turnAround2(int time) {
   digitalWrite(IN5, HIGH);
   digitalWrite(IN6, LOW);
 
+  // Wait for the specified time
   delay(time);
 
+  // Stop the motors
   analogWrite(ENA, 0);
   analogWrite(ENB, 0);
   analogWrite(ENC, 0);
 }
 
-// Function to control direction for a specified time
 void directionControl(int time) {
-  analogWrite(ENA, 0);
-  analogWrite(ENB, 100);  // Right motor
-  analogWrite(ENC, 100);  // Left motor
+  // Set the motors to maximum power
+  analogWrite(ENA, 0
 
+);
+  analogWrite(ENB, 100); // right
+  analogWrite(ENC, 100); // left from front
+
+  // Move motors A, B, and C forward
   digitalWrite(IN1, LOW);
   digitalWrite(IN2, LOW);
   digitalWrite(IN3, HIGH);
@@ -286,20 +303,21 @@ void directionControl(int time) {
   digitalWrite(IN5, LOW);
   digitalWrite(IN6, HIGH);
 
+  // Wait for the specified time
   delay(time);
 
+  // Stop the motors
   analogWrite(ENA, 0);
   analogWrite(ENB, 0);
   analogWrite(ENC, 0);
 }
 
-// Function to handle gesture recognition
 void handleGesture() {
   while (true) {
     uint8_t data = 0, data1 = 0, error;
-    error = paj7620ReadReg(0x43, 1, &data);
+    error = paj7620ReadReg(0x43, 1, &data); // Read Bank_0_Reg_0x43/0x44 for gesture result.
     if (!error) {
-      switch (data) {
+      switch (data) { // When different gestures are detected, the variable 'data' will be set to different values by paj7620ReadReg(0x43, 1, &data).
         case GES_RIGHT_FLAG:
           delay(GES_ENTRY_TIME);
           paj7620ReadReg(0x43, 1, &data);
@@ -311,15 +329,17 @@ void handleGesture() {
             delay(GES_QUIT_TIME);
           } else {
             Serial.println("Right");
-            setColor(255, 0, 255);
+            setColor(0, 255, 0);
             delay(1000);
-            setColor(0, 0, 0);
-            directionControl(1700);
-            myDFPlayer.play(4);  // Play message 4
-            turnAround(500);
-            delay(2000);
-            Serial1.println("$O#");
-            return;
+            setColor(255, 255, 255);
+            if (canI == true) {
+              directionControl(1700);
+              myDFPlayer.play(6);
+              turnAround2(500);
+              delay(2000);
+              Serial1.println("$O#");
+              return;
+            }
           }
           break;
         case GES_LEFT_FLAG:
@@ -333,9 +353,9 @@ void handleGesture() {
             delay(GES_QUIT_TIME);
           } else {
             Serial.println("Left");
-            setColor(0, 0, 255);
+            setColor(255, 255, 0); // GREEN
             delay(200);
-            setColor(0, 0, 0);
+            setColor(255, 255, 255);
           }
           break;
         case GES_UP_FLAG:
@@ -349,10 +369,11 @@ void handleGesture() {
             delay(GES_QUIT_TIME);
           } else {
             Serial.println("Up");
-            setColor(0, 0, 255);
+            setColor(255, 255, 0); // BLUE
             delay(200);
-            setColor(0, 0, 0);
+            setColor(255, 255, 255); // BLUE
             delay(1000);
+            canI = true;
             Serial1.println("$V#");
           }
           break;
@@ -367,9 +388,9 @@ void handleGesture() {
             delay(GES_QUIT_TIME);
           } else {
             Serial.println("Down");
-            setColor(0, 255, 0);
+            setColor(255, 0, 255);
             delay(1000);
-            setColor(0, 0, 0);
+            setColor(255, 255, 255);
           }
           break;
         case GES_FORWARD_FLAG:
@@ -384,7 +405,7 @@ void handleGesture() {
           Serial.println("Clockwise");
           break;
         case GES_COUNT_CLOCKWISE_FLAG:
-          Serial.println("anti-clockwise");
+          Serial.println("Anti-clockwise");
           break;
         default:
           paj7620ReadReg(0x44, 1, &data1);
