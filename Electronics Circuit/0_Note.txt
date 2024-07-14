@@ -1,5 +1,0 @@
-Schemi elettrici
-HB2 is a duble H-Bridge L298N
-HB3 is a triple H-Bridge L298N
-M is the Mascareta
-G is the Gondola
