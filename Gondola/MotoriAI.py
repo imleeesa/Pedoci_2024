@@ -147,10 +147,6 @@ def straigthAI(seconds):
     cv2.waitKey(10)  # Fix OpenCV bug
     cv2.waitKey(10)  # Fix OpenCV bug
 
-import cv2
-import numpy as np
-import time
-
 # Function to move the robot to the left for a specified duration, attempting to find a pink object.
 def leftAI(tempo):
     # Initialize the camera
