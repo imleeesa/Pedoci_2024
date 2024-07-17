@@ -141,7 +141,6 @@ void loop() {
   //directionControl(10000);
   anchorInitial();
   delay(2000);
-  
  
   setColor(255, 0, 255);
 
@@ -176,6 +175,8 @@ void loop() {
   
   // Start moving forward
   rowed(8000);
+
+  setColor(255, 255, 255);
   while (true);
 }
 
@@ -317,7 +318,7 @@ void aSinistra(int time) {
   // Function to turn left for a specified time
   // Set power to motor A
   analogWrite(ENA, 50); // Right motor power
-  analogWrite(ENB, 125); // Left motor power
+  analogWrite(ENB, 135); // Left motor power
 
   // Drive motors A and B forward
   digitalWrite(IN1, LOW);

@@ -289,11 +289,9 @@ void turnAround2(int time) {
 
 void directionControl(int time) {
   // Set the motors to maximum power
-  analogWrite(ENA, 0
-
-);
-  analogWrite(ENB, 100); // right
-  analogWrite(ENC, 100); // left from front
+  analogWrite(ENA, 0);
+  analogWrite(ENB, 105); // right
+  analogWrite(ENC, 105); // left from front
 
   // Move motors A, B, and C forward
   digitalWrite(IN1, LOW);
