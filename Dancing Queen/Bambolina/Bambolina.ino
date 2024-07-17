@@ -36,9 +36,10 @@ MFRC522 rfid(SS_PIN, RST_PIN);
 
 double inputSav;
 
-const double GradeAdjust = 4.10; // se va a destra bisogna diminuire il valore
-const double motorSpeedFactorLeft = 0.684;//69 - 685 - 683
-const double motorSpeedFactorRight = 0.786;//78 - 783 - 790
+const double GradeAdjust = 4.50; // se va a destra bisogna diminuire il valore
+const double motorSpeedFactorLeft = 0.684;//69 - 685 - 683 - 684
+const double motorSpeedFactorRight = 0.783;//78 - 783 - 790 - 786
+ const unsigned long danceTime = 8500;
 
 /*
    MPU6050 Related Variables:
@@ -84,7 +85,7 @@ double input, output;
 int moveState = 0;
 double Kp = 180;   //
 double Kd = 14;
-double Ki = 70;
+double Ki = 80;
 PID pid(&input, &output, &setpoint, Kp, Ki, Kd, DIRECT);
 
 
@@ -285,13 +286,13 @@ void loop()
   analogWrite(A0, 0);    // Set A3 to low (0) for the second phase
   timeStart = millis();  // Record the start time for phase 2
   timeChange = millis(); // Record the time for phase change
-  timeStep = 4000;//4000
-  timeInterval = 2000;//2000
+  timeStep = 3500;//4000
+  timeInterval = 1500;//2000
   mpu.resetFIFO();       // Reset FIFO
 
   // Loop for 30 seconds
   bool balanced = true;
-  while (millis() - timeStart < 9000) {
+  while (millis() - timeStart < danceTime) {
     if (!dmpReady) return; // If DMP is not ready, exit the loop
 
     // PID computation and motor control until an interrupt is detected
